@@ -1,0 +1,130 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%files
+	./colmapPipeline.py /opt
+	#./colmapExtractFeatures.py /opt
+	#./colmapMatchExuastiveUnDistort.py /opt
+	#./colmapIncrementalMapping.py /opt
+	#./colmapDenseReconstruction.py /opt
+
+%post
+    apt-get -y update && apt -y upgrade
+    export DEBIAN_FRONTEND=noninteractive 
+    apt-get install -y --no-install-recommends tzdata
+    apt-get -y install python3.9
+    apt-get -y install pip
+    apt-get -y install git
+    pip install numpy
+     
+    
+    # Moving from /root to ../opt
+	cd ../opt
+
+	# Making directory for colmap-nu-paper programs to live
+	mkdir colmap-nu-papers && chmod 755 colmap-nu-papers
+
+	# Moving to new directory
+	cd colmap-nu-papers
+		
+	#Installing python3-venv for virtual enviroment
+	apt-get -y install python3-venv
+
+	# Setting up virtual enviroment
+	python3 -m venv colmapVenv
+
+	#Running again as sometimes files are fully downloaded?
+	python3 -m venv colmapVenv
+	
+	# Moving the pipeline files
+	#mv /opt/colmapExtractFeatures.py ~/../opt/colmap-nu-papers
+	#mv /opt/colmapMatchExuastiveUnDistort.py ~/../opt/colmap-nu-papers
+	#mv /opt/colmapDenseReconstruction.py ~/../opt/colmap-nu-papers
+	#mv /opt/colmapIncrementalMapping.py ~/../opt/colmap-nu-papers
+	
+	mv /opt/colmapPipeline.py ~/../opt/colmap-nu-papers
+	
+	chmod ugo+rwx /opt/colmap-nu-papers
+	mkdir /opt/-nu-papers
+	chmod ugo+rwx /opt/colmap-nu-papers
+	cd ~/
+	
+	pip install pathlib
+	
+
+    # COLMAP dependencies for source build
+    apt-get install -y \
+        git \
+        cmake \
+        ninja-build \
+        build-essential \
+        libboost-program-options-dev \
+        libboost-filesystem-dev \
+        libboost-graph-dev \
+        libboost-system-dev \
+        libboost-test-dev \
+        libeigen3-dev \
+        libflann-dev \
+        libfreeimage-dev \
+        libmetis-dev \
+        libgoogle-glog-dev \
+        libgflags-dev \
+        libsqlite3-dev \
+        libglew-dev \
+        qtbase5-dev \
+        libqt5opengl5-dev \
+        libcgal-dev \
+        libceres-dev \
+        wget
+
+
+    # Install CUDA 11.7 (latest version supported by Compute Canada as of March 2023)
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+    dpkg -i cuda-keyring_1.0-1_all.deb
+    apt-get update
+    apt-get -y install cuda-11-7 nvidia-gds
+    export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}
+    export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+    export CUDA_HOME=/usr/local/cuda-11.7/
+
+    # Build COLMAP
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    git checkout dev
+    #git checkout 3.7
+    mkdir build
+    cd build
+    cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=75
+    ninja
+    ninja install
+    
+    strip --remove-section=.note.ABI-tag /usr/lib/x86_64-linux-gnu/libQt5Core.so.5
+    
+    cd ~/
+    git clone --recursive https://github.com/colmap/pycolmap.git
+    cd pycolmap
+    git checkout master
+    pip install .
+    
+    
+    
+
+%post
+  apt-get -y update
+  echo "Colmap Singularity container built! Sucess!"
+
+%environment
+
+%runscript
+    export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}
+    export CUDA_HOME=/usr/local/cuda-11.7/
+    cd opt/colmap-nu-papers
+    /bin/bash
+
+
+%labels
+    Authors: Weder Ribas <me@wederribas.com> & Brian Horner <horner.br@northeastern.edu>
+    Version 1.0.0
+    Class CS7675
+    Supervisors Dr. Derek Jacobi and Dr. Yvonne Coady
+    Northeastern Unviersity and University of Victoria
